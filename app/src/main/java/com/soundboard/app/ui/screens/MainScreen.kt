@@ -96,8 +96,7 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                     }
                     DropdownMenu(
                         expanded = showBoardMenu,
-                        onDismissRequest = { showBoardMenu = false },
-                        containerColor = Surface2
+                        onDismissRequest = { showBoardMenu = false }
                     ) {
                         // Add tile
                         DropdownMenuItem(
@@ -307,7 +306,7 @@ fun EmptyState(onCreateBoard: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = onCreateBoard,
-                colors = ButtonDefaults.buttonColors(containerColor = Amber500)
+                colors = ButtonDefaults.buttonColors()
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
@@ -354,7 +353,7 @@ fun NameInputDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(text.ifBlank { placeholder }) },
-                colors = ButtonDefaults.buttonColors(containerColor = Amber500),
+                colors = ButtonDefaults.buttonColors(),
                 enabled = true
             ) {
                 Text(confirmLabel, fontWeight = FontWeight.SemiBold)

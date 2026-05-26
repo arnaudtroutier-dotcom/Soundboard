@@ -344,7 +344,7 @@ fun TileEditorDialog(
                             )
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Amber500)
+                        colors = ButtonDefaults.buttonColors()
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
