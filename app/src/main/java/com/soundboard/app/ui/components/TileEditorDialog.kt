@@ -359,7 +359,7 @@ fun TileEditorDialog(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = Surface2,
+            tonalElevation = 0.dp,
             title = { Text("Supprimer la tuile ?", color = OnSurface) },
             text = { Text("Cette action est irréversible. Les sons associés seront également supprimés.", color = OnSurfaceDim) },
             confirmButton = {

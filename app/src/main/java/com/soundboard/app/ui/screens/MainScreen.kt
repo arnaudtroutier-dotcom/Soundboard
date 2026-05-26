@@ -232,7 +232,7 @@ fun MainScreen(viewModel: SoundboardViewModel) {
     showDeleteBoardDialog?.let { board ->
         AlertDialog(
             onDismissRequest = { showDeleteBoardDialog = null },
-            containerColor = Surface2,
+            tonalElevation = 0.dp,
             title = { Text("Supprimer « ${board.name} » ?", color = OnSurface) },
             text = { Text("Toutes les tuiles et sons associés seront supprimés. Cette action est irréversible.", color = OnSurfaceDim) },
             confirmButton = {
@@ -330,7 +330,7 @@ fun NameInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Surface2,
+        tonalElevation = 0.dp,
         title = { Text(title, color = OnSurface) },
         text = {
             OutlinedTextField(
