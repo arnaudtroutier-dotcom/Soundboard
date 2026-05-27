@@ -123,8 +123,8 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
                 Tile(
                     soundboardId = soundboardId,
                     name = "Tuile",
-                    posX = tile.posX,
-                    posY = tile.posY,
+                    posX = tileData.tile.posX,
+                    posY = tileData.tile.posY,
                     width = 0.25f,
                     height = 0.13f
                 )
@@ -263,8 +263,8 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
                             soundboardId = boardId,
                             name = tile.name,
                             color = tile.color,
-                            posX = tile.posX,
-                            posY = tile.posY,
+                            posX = tileData.tile.posX,
+                            posY = tileData.tile.posY,
                             width = tile.width,
                             height = tile.height,
                             onClickDuringPlayback = tile.onClickDuringPlayback,
