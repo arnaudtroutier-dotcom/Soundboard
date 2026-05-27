@@ -133,8 +133,17 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                                         context = context,
                                         soundboard = board,
                                         onSuccess = { file ->
-                                            exportMessage = "Exporté dans :\n${file.absolutePath}"
-                                        },
+    val shareUri = androidx.core.content.FileProvider.getUriForFile(
+        context, context.packageName + ".fileprovider", file
+    )
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/octet-stream"
+        putExtra(android.content.Intent.EXTRA_STREAM, shareUri)
+        putExtra(android.content.Intent.EXTRA_SUBJECT, file.name)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(android.content.Intent.createChooser(intent, "Exporter via..."))
+},
                                         onError = { err ->
                                             Toast.makeText(context, "Erreur : $err", Toast.LENGTH_LONG).show()
                                         }
