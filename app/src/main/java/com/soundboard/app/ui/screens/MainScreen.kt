@@ -3,7 +3,9 @@ package com.soundboard.app.ui.screens
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,7 +28,7 @@ import com.soundboard.app.data.entities.Soundboard
 import com.soundboard.app.ui.theme.*
 import com.soundboard.app.viewmodel.SoundboardViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(viewModel: SoundboardViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -41,6 +44,7 @@ fun MainScreen(viewModel: SoundboardViewModel) {
     var showDeleteBoardDialog by remember { mutableStateOf<Soundboard?>(null) }
     var showBoardMenu by remember { mutableStateOf(false) }
     var exportMessage by remember { mutableStateOf<String?>(null) }
+    var closingBoard by remember { mutableStateOf<Soundboard?>(null) }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -50,6 +54,8 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                 context = context,
                 uri = uri,
                 onSuccess = { name ->
+                    // Select the newly imported board (last one)
+                    viewModel.selectSoundboard(viewModel.uiState.value.soundboards.size)
                     Toast.makeText(context, "« $name » importé avec succès !", Toast.LENGTH_LONG).show()
                 },
                 onError = { err ->
@@ -133,17 +139,17 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                                         context = context,
                                         soundboard = board,
                                         onSuccess = { file ->
-    val shareUri = androidx.core.content.FileProvider.getUriForFile(
-        context, context.packageName + ".fileprovider", file
-    )
-    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-        type = "application/octet-stream"
-        putExtra(android.content.Intent.EXTRA_STREAM, shareUri)
-        putExtra(android.content.Intent.EXTRA_SUBJECT, file.name)
-        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(android.content.Intent.createChooser(intent, "Exporter via..."))
-},
+                                            val shareUri = androidx.core.content.FileProvider.getUriForFile(
+                                                context, context.packageName + ".fileprovider", file
+                                            )
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                type = "application/octet-stream"
+                                                putExtra(android.content.Intent.EXTRA_STREAM, shareUri)
+                                                putExtra(android.content.Intent.EXTRA_SUBJECT, file.name)
+                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(android.content.Intent.createChooser(intent, "Exporter via..."))
+                                        },
                                         onError = { err ->
                                             Toast.makeText(context, "Erreur : $err", Toast.LENGTH_LONG).show()
                                         }
@@ -210,7 +216,8 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                     SoundboardTab(
                         name = board.name,
                         selected = index == selectedIndex,
-                        onClick = { viewModel.selectSoundboard(index) }
+                        onClick = { viewModel.selectSoundboard(index) },
+                        onLongClick = { closingBoard = board }
                     )
                 }
             }
@@ -271,36 +278,47 @@ fun MainScreen(viewModel: SoundboardViewModel) {
         )
     }
 
-    exportMessage?.let { msg ->
+    // Fermer un soundboard (appui long sur onglet)
+    closingBoard?.let { board ->
         AlertDialog(
-            onDismissRequest = { exportMessage = null },
-            title = { Text("Soundboard exporté ✓", color = OnSurface) },
-            text = {
-                Column {
-                    Text(msg, color = OnSurfaceDim, fontSize = 13.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Pour transférer sur un autre téléphone, utilisez un gestionnaire de fichiers, Google Drive, ou un câble USB.",
-                        color = OnSurfaceFaint, fontSize = 12.sp
-                    )
+            onDismissRequest = { closingBoard = null },
+            title = { Text("« ${board.name} »", color = OnSurface) },
+            text = { Text("Que veux-tu faire avec ce soundboard ?", color = OnSurfaceDim) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteSoundboard(board)
+                    closingBoard = null
+                }) {
+                    Text("Supprimer", color = DangerRed, fontWeight = FontWeight.Bold)
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { exportMessage = null }) {
-                    Text("OK", color = Amber400, fontWeight = FontWeight.Bold)
+            dismissButton = {
+                TextButton(onClick = { closingBoard = null }) {
+                    Text("Annuler", color = OnSurfaceDim)
                 }
             }
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SoundboardTab(name: String, selected: Boolean, onClick: () -> Unit) {
+fun SoundboardTab(
+    name: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     Surface(
-        onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = if (selected) Amber600 else Surface3,
-        modifier = Modifier.height(32.dp)
+        modifier = Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 14.dp)) {
             Text(

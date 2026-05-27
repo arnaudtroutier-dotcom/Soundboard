@@ -43,7 +43,7 @@ fun exportSoundboard(
     tiles: List<Tile>,
     soundsMap: Map<Long, List<SoundFile>>
 ): File {
-    val gson = Gson()
+    val gson = com.google.gson.GsonBuilder().serializeSpecialFloatingPointValues().create()
     val exportDir = File(context.filesDir, "exports").also { it.mkdirs() }
     val safeName = soundboard.name.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
     val outFile = File(exportDir, "$safeName.soundboard")
@@ -97,7 +97,7 @@ data class ImportedTileData(
 )
 
 fun importSoundboard(context: Context, uri: Uri): ImportResult {
-    val gson = Gson()
+    val gson = com.google.gson.GsonBuilder().serializeSpecialFloatingPointValues().create()
     val audioDir = File(context.filesDir, "imported_audio").also { it.mkdirs() }
     val audioFiles = mutableMapOf<String, File>()
     var exportData: ExportedSoundboard? = null
