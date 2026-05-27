@@ -137,21 +137,21 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun updateTilePosition(tile: Tile, posX: Float, posY: Float) {
-        viewModelScope.launch {
-            tileDao.update(tile.copy(posX = posX.coerceIn(0f, 1f), posY = posY.coerceIn(0f, 1f)))
-        }
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        tileDao.update(tile.copy(posX = posX.coerceIn(0f, 1f), posY = posY.coerceIn(0f, 1f)))
     }
+}
 
-    fun updateTileSize(tile: Tile, width: Float, height: Float) {
-        viewModelScope.launch {
-            tileDao.update(
-                tile.copy(
-                    width = width.coerceIn(0.08f, 1f),
-                    height = height.coerceIn(0.05f, 1f)
-                )
+fun updateTileSize(tile: Tile, width: Float, height: Float) {
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        tileDao.update(
+            tile.copy(
+                width = width.coerceIn(0.08f, 1f),
+                height = height.coerceIn(0.05f, 1f)
             )
-        }
+        )
     }
+}
 
     fun deleteTile(tile: Tile) {
         viewModelScope.launch {
