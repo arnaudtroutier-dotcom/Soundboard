@@ -25,45 +25,46 @@ fun SoundboardCanvas(
     val playbackStates by viewModel.uiState.collectAsState()
 
     Box(
-    modifier = Modifier
-        .fillMaxSize()
-        .background(SurfaceDark)
-        .onGloballyPositioned { coords ->
-            containerWidthPx = coords.size.width.toFloat().coerceAtLeast(1f)
-            containerHeightPx = coords.size.height.toFloat().coerceAtLeast(1f)
-        }
-) {
-    tiles.forEach { tileWithSounds ->
-        key(tileWithSounds.tile.id) {
-            val tile = tileWithSounds.tile
-            val playback = playbackStates.playbackStates[tile.id]
-                ?: com.soundboard.app.audio.PlaybackState()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SurfaceDark)
+            .onGloballyPositioned { coords ->
+                containerWidthPx = coords.size.width.toFloat().coerceAtLeast(1f)
+                containerHeightPx = coords.size.height.toFloat().coerceAtLeast(1f)
+            }
+    ) {
+        tiles.forEach { tileWithSounds ->
+            key(tileWithSounds.tile.id) {
+                val tile = tileWithSounds.tile
+                val playback = playbackStates.playbackStates[tile.id]
+                    ?: com.soundboard.app.audio.PlaybackState()
 
-            SoundTile(
-                tile = tile,
-                isEditMode = isEditMode,
-                playbackState = playback,
-                hasSounds = tileWithSounds.sounds.isNotEmpty(),
-                containerWidthPx = containerWidthPx,
-                containerHeightPx = containerHeightPx,
-                onPress = { if (!isEditMode) viewModel.handleTilePress(tileWithSounds) },
-                onEditRequest = { if (isEditMode) editingTile = tileWithSounds },
-                onMoveEnd = { newX, newY -> viewModel.updateTilePosition(tile, newX, newY) },
-                onResizeEnd = { newW, newH -> viewModel.updateTileSize(tile, newW, newH) }
-            )
+                SoundTile(
+                    tile = tile,
+                    isEditMode = isEditMode,
+                    playbackState = playback,
+                    hasSounds = tileWithSounds.sounds.isNotEmpty(),
+                    containerWidthPx = containerWidthPx,
+                    containerHeightPx = containerHeightPx,
+                    onPress = { if (!isEditMode) viewModel.handleTilePress(tileWithSounds) },
+                    onEditRequest = { if (isEditMode) editingTile = tileWithSounds },
+                    onMoveEnd = { newX, newY -> viewModel.updateTilePosition(tile, newX, newY) },
+                    onResizeEnd = { newW, newH -> viewModel.updateTileSize(tile, newW, newH) }
+                )
+            }
         }
     }
-}
 
     editingTile?.let { tws ->
+        val freshTws = tiles.find { it.tile.id == tws.tile.id } ?: tws
         TileEditorDialog(
-            tile = tws.tile,
-            soundsFlow = viewModel.getSoundsFlow(tws.tile.id),
+            tile = freshTws.tile,
+            soundsFlow = viewModel.getSoundsFlow(freshTws.tile.id),
             onDismiss = { editingTile = null },
             onSave = { updatedTile -> viewModel.updateTile(updatedTile); editingTile = null },
-            onAddSound = { uri, displayName -> viewModel.addSoundToTile(tws.tile.id, uri, displayName) },
+            onAddSound = { uri, displayName -> viewModel.addSoundToTile(freshTws.tile.id, uri, displayName) },
             onRemoveSound = { soundFile -> viewModel.removeSoundFromTile(soundFile) },
-            onDeleteTile = { viewModel.deleteTile(tws.tile); editingTile = null }
+            onDeleteTile = { viewModel.deleteTile(freshTws.tile); editingTile = null }
         )
     }
 }
