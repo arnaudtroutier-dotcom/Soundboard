@@ -6,6 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -204,24 +206,85 @@ fun MainScreen(viewModel: SoundboardViewModel) {
         }
 
         if (soundboards.isNotEmpty()) {
-            Row(
+    val scrollState = rememberScrollState()
+    var draggingIndex by remember { mutableStateOf(-1) }
+    var targetIndex by remember { mutableStateOf(-1) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Surface2)
+            .horizontalScroll(scrollState)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        soundboards.forEachIndexed { index, board ->
+            val isDragging = draggingIndex == index
+            val isTarget = targetIndex == index
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = when {
+                    isDragging -> Amber400
+                    isTarget -> Surface4
+                    index == selectedIndex -> Amber600
+                    else -> Surface3
+                },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface2)
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                soundboards.forEachIndexed { index, board ->
-                    SoundboardTab(
-                        name = board.name,
-                        selected = index == selectedIndex,
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .combinedClickable(
                         onClick = { viewModel.selectSoundboard(index) },
-                        onLongClick = { closingBoard = board }
+                        onLongClick = {
+                            draggingIndex = index
+                            targetIndex = index
+                        }
+                    )
+                    .then(
+                        if (draggingIndex >= 0) {
+                            Modifier.pointerInput(draggingIndex) {
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        if (draggingIndex >= 0 && targetIndex >= 0 && draggingIndex != targetIndex) {
+                                            viewModel.reorderSoundboards(draggingIndex, targetIndex)
+                                            viewModel.selectSoundboard(targetIndex)
+                                        }
+                                        draggingIndex = -1
+                                        targetIndex = -1
+                                    },
+                                    onDragCancel = {
+                                        draggingIndex = -1
+                                        targetIndex = -1
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        val tabWidth = 120f
+                                        val newTarget = (draggingIndex + (dragAmount.x / tabWidth).toInt())
+                                            .coerceIn(0, soundboards.size - 1)
+                                        targetIndex = newTarget
+                                    }
+                                )
+                            }
+                        } else Modifier
+                    )
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(horizontal = 14.dp)
+                ) {
+                    Text(
+                        board.name,
+                        color = if (index == selectedIndex || isDragging) Color(0xFF1A0F00) else OnSurfaceDim,
+                        fontSize = 13.sp,
+                        fontWeight = if (index == selectedIndex) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
+    }
+}
 
         if (soundboards.isEmpty()) {
             EmptyState(onCreateBoard = { showNewBoardDialog = true })

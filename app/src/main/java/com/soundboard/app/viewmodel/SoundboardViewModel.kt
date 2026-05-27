@@ -89,6 +89,17 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
     fun renameSoundboard(id: Long, newName: String) {
         viewModelScope.launch { soundboardDao.rename(id, newName) }
     }
+    fun reorderSoundboards(from: Int, to: Int) {
+    viewModelScope.launch {
+        val boards = _uiState.value.soundboards.toMutableList()
+        if (from < 0 || to < 0 || from >= boards.size || to >= boards.size) return@launch
+        val moved = boards.removeAt(from)
+        boards.add(to, moved)
+        boards.forEachIndexed { index, board ->
+            soundboardDao.update(board.copy(orderIndex = index))
+        }
+    }
+}
 
     fun deleteSoundboard(soundboard: Soundboard) {
         viewModelScope.launch {
