@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
-import com.soundboard.app.data.entities.Tile
 import com.soundboard.app.ui.components.SoundTile
 import com.soundboard.app.ui.components.TileEditorDialog
 import com.soundboard.app.ui.theme.SurfaceDark
@@ -21,7 +20,6 @@ fun SoundboardCanvas(
 ) {
     var containerWidthPx by remember { mutableStateOf(1f) }
     var containerHeightPx by remember { mutableStateOf(1f) }
-
     var editingTile by remember { mutableStateOf<TileWithSounds?>(null) }
 
     val playbackStates by viewModel.uiState.collectAsState()
@@ -47,44 +45,23 @@ fun SoundboardCanvas(
                 hasSounds = tileWithSounds.sounds.isNotEmpty(),
                 containerWidthPx = containerWidthPx,
                 containerHeightPx = containerHeightPx,
-                onPress = {
-                    if (!isEditMode) {
-                        viewModel.handleTilePress(tileWithSounds)
-                    }
-                },
-                onEditRequest = {
-                    if (isEditMode) editingTile = tileWithSounds
-                },
-                onMoveEnd = { newX, newY ->
-                    viewModel.updateTilePosition(tile, newX, newY)
-                },
-                onResizeEnd = { newW, newH ->
-                    viewModel.updateTileSize(tile, newW, newH)
-                }
+                onPress = { if (!isEditMode) viewModel.handleTilePress(tileWithSounds) },
+                onEditRequest = { if (isEditMode) editingTile = tileWithSounds },
+                onMoveEnd = { newX, newY -> viewModel.updateTilePosition(tile, newX, newY) },
+                onResizeEnd = { newW, newH -> viewModel.updateTileSize(tile, newW, newH) }
             )
         }
     }
 
-    // Tile editor dialog
     editingTile?.let { tws ->
         TileEditorDialog(
             tile = tws.tile,
-            sounds = tws.sounds,
+            soundsFlow = viewModel.getSoundsFlow(tws.tile.id),
             onDismiss = { editingTile = null },
-            onSave = { updatedTile ->
-                viewModel.updateTile(updatedTile)
-                editingTile = null
-            },
-            onAddSound = { uri, displayName ->
-                viewModel.addSoundToTile(tws.tile.id, uri, displayName)
-            },
-            onRemoveSound = { soundFile ->
-                viewModel.removeSoundFromTile(soundFile)
-            },
-            onDeleteTile = {
-                viewModel.deleteTile(tws.tile)
-                editingTile = null
-            }
+            onSave = { updatedTile -> viewModel.updateTile(updatedTile); editingTile = null },
+            onAddSound = { uri, displayName -> viewModel.addSoundToTile(tws.tile.id, uri, displayName) },
+            onRemoveSound = { soundFile -> viewModel.removeSoundFromTile(soundFile) },
+            onDeleteTile = { viewModel.deleteTile(tws.tile); editingTile = null }
         )
     }
 }

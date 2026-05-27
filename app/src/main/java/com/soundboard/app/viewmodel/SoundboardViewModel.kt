@@ -199,6 +199,7 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
 
     // ── Playback ─────────────────────────────────────────────────────────────
 
+    fun getSoundsFlow(tileId: Long) = soundFileDao.getSoundFilesForTile(tileId)
     fun handleTilePress(tileWithSounds: TileWithSounds) {
         val tile = tileWithSounds.tile
         val uris = tileWithSounds.sounds.map { it.uri }

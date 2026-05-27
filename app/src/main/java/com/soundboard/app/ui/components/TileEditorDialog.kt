@@ -27,24 +27,27 @@ import androidx.compose.ui.window.DialogProperties
 import com.soundboard.app.data.entities.SoundFile
 import com.soundboard.app.data.entities.Tile
 import com.soundboard.app.ui.theme.*
+import kotlinx.coroutines.flow.Flow
 
 @Composable
 fun TileEditorDialog(
     tile: Tile,
-    sounds: List<SoundFile>,
+    soundsFlow: Flow<List<SoundFile>>,
     onDismiss: () -> Unit,
     onSave: (Tile) -> Unit,
     onAddSound: (uri: String, displayName: String) -> Unit,
     onRemoveSound: (SoundFile) -> Unit,
     onDeleteTile: () -> Unit
 ) {
-    var name by remember { mutableStateOf(tile.name) }
-    var selectedColor by remember { mutableStateOf(Color(tile.color)) }
-    var onClickMode by remember { mutableStateOf(tile.onClickDuringPlayback) }
-    var loopEnabled by remember { mutableStateOf(tile.loopEnabled) }
-    var volume by remember { mutableStateOf(tile.volume) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showColorPicker by remember { mutableStateOf(false) }
+    // Collect sounds in real-time from Flow
+    val sounds by soundsFlow.collectAsState(initial = emptyList())
+
+    var name by remember(tile.id) { mutableStateOf(tile.name) }
+    var selectedColor by remember(tile.id) { mutableStateOf(Color(tile.color)) }
+    var onClickMode by remember(tile.id) { mutableStateOf(tile.onClickDuringPlayback) }
+    var loopEnabled by remember(tile.id) { mutableStateOf(tile.loopEnabled) }
+    var volume by remember(tile.id) { mutableStateOf(tile.volume) }
+    var showDeleteConfirm by remember(tile.id) { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -52,14 +55,12 @@ fun TileEditorDialog(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         uris.forEach { uri ->
-            // Persist permission
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: Exception) {}
-
             val displayName = uri.lastPathSegment
                 ?.substringAfterLast('/')
                 ?.substringAfterLast(':')
@@ -89,25 +90,22 @@ fun TileEditorDialog(
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = Amber400, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Edit, null, tint = Amber400, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                     Text(
                         "Modifier la tuile",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = OnSurface
+                            fontWeight = FontWeight.Bold, color = OnSurface
                         ),
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = OnSurfaceDim)
+                        Icon(Icons.Default.Close, "Fermer", tint = OnSurfaceDim)
                     }
                 }
 
                 LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 20.dp),
+                    modifier = Modifier.weight(1f).padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
@@ -153,39 +151,18 @@ fun TileEditorDialog(
                                         .clickable { selectedColor = presetColor }
                                 )
                             }
-                            // Custom color button
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Surface3)
-                                    .border(1.dp, Surface4, CircleShape)
-                                    .clickable { showColorPicker = true },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Palette,
-                                    contentDescription = "Couleur personnalisée",
-                                    tint = OnSurfaceDim,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
                         }
                     }
 
-                    // Sons
+                    // Sons — live from Flow
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            SectionLabel("SONS", modifier = Modifier.weight(1f))
-                            TextButton(
-                                onClick = {
-                                    audioPickerLauncher.launch(arrayOf("audio/*"))
-                                }
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = Amber400, modifier = Modifier.size(18.dp))
+                            SectionLabel("SONS (${sounds.size})", modifier = Modifier.weight(1f))
+                            TextButton(onClick = { audioPickerLauncher.launch(arrayOf("audio/*")) }) {
+                                Icon(Icons.Default.Add, null, tint = Amber400, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("Ajouter", color = Amber400, fontSize = 13.sp)
                             }
@@ -209,10 +186,7 @@ fun TileEditorDialog(
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 sounds.forEach { soundFile ->
-                                    SoundFileRow(
-                                        soundFile = soundFile,
-                                        onRemove = { onRemoveSound(soundFile) }
-                                    )
+                                    SoundFileRow(soundFile = soundFile, onRemove = { onRemoveSound(soundFile) })
                                 }
                                 if (sounds.size > 1) {
                                     Text(
@@ -229,8 +203,6 @@ fun TileEditorDialog(
                     // Playback settings
                     item {
                         SectionLabel("LECTURE")
-
-                        // Loop toggle
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -238,89 +210,53 @@ fun TileEditorDialog(
                                 .padding(horizontal = 16.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Repeat, contentDescription = null, tint = OnSurfaceDim, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Repeat, null, tint = OnSurfaceDim, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(12.dp))
                             Text("Boucle (loop)", color = OnSurface, modifier = Modifier.weight(1f))
                             Switch(
                                 checked = loopEnabled,
                                 onCheckedChange = { loopEnabled = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Amber400,
-                                    checkedTrackColor = Amber600
-                                )
+                                colors = SwitchDefaults.colors(checkedThumbColor = Amber400, checkedTrackColor = Amber600)
                             )
                         }
 
                         Spacer(Modifier.height(8.dp))
-
-                        // On click during playback
-                        Text(
-                            "Si on clique pendant la lecture :",
-                            color = OnSurfaceDim,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
+                        Text("Si on clique pendant la lecture :", color = OnSurfaceDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ClickModeChip(
-                                label = "Pause / Reprendre",
-                                selected = onClickMode == "PAUSE",
-                                icon = Icons.Default.PauseCircle,
-                                onClick = { onClickMode = "PAUSE" }
-                            )
-                            ClickModeChip(
-                                label = "Arrêt total",
-                                selected = onClickMode == "STOP",
-                                icon = Icons.Default.StopCircle,
-                                onClick = { onClickMode = "STOP" }
-                            )
+                            ClickModeChip("Pause / Reprendre", onClickMode == "PAUSE", Icons.Default.PauseCircle) { onClickMode = "PAUSE" }
+                            ClickModeChip("Arrêt total", onClickMode == "STOP", Icons.Default.StopCircle) { onClickMode = "STOP" }
                         }
 
                         Spacer(Modifier.height(10.dp))
-
-                        // Volume
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = OnSurfaceDim, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.VolumeUp, null, tint = OnSurfaceDim, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Volume", color = OnSurfaceDim, fontSize = 12.sp, modifier = Modifier.width(56.dp))
                             Slider(
                                 value = volume,
                                 onValueChange = { volume = it },
                                 modifier = Modifier.weight(1f),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Amber400,
-                                    activeTrackColor = Amber500
-                                )
+                                colors = SliderDefaults.colors(thumbColor = Amber400, activeTrackColor = Amber500)
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text(
-                                "${(volume * 100).toInt()}%",
-                                color = OnSurfaceDim,
-                                fontSize = 12.sp,
-                                modifier = Modifier.width(36.dp)
-                            )
+                            Text("${(volume * 100).toInt()}%", color = OnSurfaceDim, fontSize = 12.sp, modifier = Modifier.width(36.dp))
                         }
                     }
 
                     // Danger zone
                     item {
                         Divider(color = Surface4)
-                        TextButton(
-                            onClick = { showDeleteConfirm = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed)
+                        TextButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.DeleteForever, null, tint = DangerRed)
                             Spacer(Modifier.width(6.dp))
                             Text("Supprimer cette tuile", color = DangerRed)
                         }
                     }
                 }
 
-                // Bottom save bar
+                // Save bar
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface2)
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().background(Surface2).padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
@@ -328,25 +264,21 @@ fun TileEditorDialog(
                         modifier = Modifier.weight(1f),
                         border = BorderStroke(1.dp, Surface4),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = OnSurfaceDim)
-                    ) {
-                        Text("Annuler")
-                    }
+                    ) { Text("Annuler") }
                     Button(
                         onClick = {
-                            onSave(
-                                tile.copy(
-                                    name = name.ifBlank { "Tuile" },
-                                    color = selectedColor.toArgb().toLong() and 0xFFFFFFFFL,
-                                    onClickDuringPlayback = onClickMode,
-                                    loopEnabled = loopEnabled,
-                                    volume = volume
-                                )
-                            )
+                            onSave(tile.copy(
+                                name = name.ifBlank { "Tuile" },
+                                color = selectedColor.toArgb().toLong() and 0xFFFFFFFFL,
+                                onClickDuringPlayback = onClickMode,
+                                loopEnabled = loopEnabled,
+                                volume = volume
+                            ))
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors()
+                        colors = ButtonDefaults.buttonColors(containerColor = Amber500)
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Enregistrer", fontWeight = FontWeight.SemiBold)
                     }
@@ -355,19 +287,13 @@ fun TileEditorDialog(
         }
     }
 
-    // Delete confirm dialog
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            tonalElevation = 0.dp,
             title = { Text("Supprimer la tuile ?", color = OnSurface) },
-            text = { Text("Cette action est irréversible. Les sons associés seront également supprimés.", color = OnSurfaceDim) },
+            text = { Text("Cette action est irréversible.", color = OnSurfaceDim) },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    onDeleteTile()
-                    onDismiss()
-                }) {
+                TextButton(onClick = { showDeleteConfirm = false; onDeleteTile(); onDismiss() }) {
                     Text("Supprimer", color = DangerRed, fontWeight = FontWeight.Bold)
                 }
             },
@@ -389,7 +315,7 @@ fun SoundFileRow(soundFile: SoundFile, onRemove: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.AudioFile, contentDescription = null, tint = Amber400, modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.AudioFile, null, tint = Amber400, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         Text(
             soundFile.displayName,
@@ -400,18 +326,13 @@ fun SoundFileRow(soundFile: SoundFile, onRemove: () -> Unit) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Default.Close, contentDescription = "Supprimer", tint = DangerRed, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.Close, "Supprimer", tint = DangerRed, modifier = Modifier.size(16.dp))
         }
     }
 }
 
 @Composable
-fun ClickModeChip(
-    label: String,
-    selected: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
-) {
+fun ClickModeChip(label: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
@@ -419,35 +340,15 @@ fun ClickModeChip(
         border = BorderStroke(1.dp, if (selected) Amber400 else Surface4),
         modifier = Modifier.height(36.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = if (selected) Color(0xFF1A0F00) else OnSurfaceDim,
-                modifier = Modifier.size(16.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp)) {
+            Icon(icon, null, tint = if (selected) Color(0xFF1A0F00) else OnSurfaceDim, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(
-                label,
-                color = if (selected) Color(0xFF1A0F00) else OnSurfaceDim,
-                fontSize = 12.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-            )
+            Text(label, color = if (selected) Color(0xFF1A0F00) else OnSurfaceDim, fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
         }
     }
 }
 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        color = Amber500,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.2.sp,
-        modifier = modifier.padding(bottom = 6.dp)
-    )
+    Text(text, color = Amber500, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, modifier = modifier.padding(bottom = 6.dp))
 }
