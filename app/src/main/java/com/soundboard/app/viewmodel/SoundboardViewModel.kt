@@ -212,6 +212,90 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
         )
     }
 
+    // ── Import / Export ──────────────────────────────────────────────────────
+
+    fun exportSoundboard(
+        context: android.content.Context,
+        soundboard: com.soundboard.app.data.entities.Soundboard,
+        onSuccess: (java.io.File) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val tiles = tileDao.getTilesForSoundboard(soundboard.id).first()
+                val soundsMap = tiles.associate { tile ->
+                    tile.id to soundFileDao.getSoundFilesForTileOnce(tile.id)
+                }
+                val file = com.soundboard.app.data.exportSoundboard(
+                    context, soundboard, tiles, soundsMap
+                )
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onSuccess(file)
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onError(e.message ?: "Erreur inconnue")
+                }
+            }
+        }
+    }
+
+    fun importSoundboard(
+        context: android.content.Context,
+        uri: android.net.Uri,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val result = com.soundboard.app.data.importSoundboard(context, uri)
+                val order = _uiState.value.soundboards.size
+                val boardId = soundboardDao.insert(
+                    com.soundboard.app.data.entities.Soundboard(
+                        name = result.soundboardName,
+                        orderIndex = order
+                    )
+                )
+                result.tiles.forEach { tileData ->
+                    val tile = tileData.tile
+                    val tileId = tileDao.insert(
+                        com.soundboard.app.data.entities.Tile(
+                            soundboardId = boardId,
+                            name = tile.name,
+                            color = tile.color,
+                            posX = tile.posX,
+                            posY = tile.posY,
+                            width = tile.width,
+                            height = tile.height,
+                            onClickDuringPlayback = tile.onClickDuringPlayback,
+                            loopEnabled = tile.loopEnabled,
+                            volume = tile.volume
+                        )
+                    )
+                    tile.sounds.forEach { sf ->
+                        val audioFile = tileData.audioFiles[sf.fileName]
+                        if (audioFile != null && audioFile.exists()) {
+                            soundFileDao.insert(
+                                com.soundboard.app.data.entities.SoundFile(
+                                    tileId = tileId,
+                                    uri = android.net.Uri.fromFile(audioFile).toString(),
+                                    displayName = sf.displayName,
+                                    orderIndex = sf.orderIndex
+                                )
+                            )
+                        }
+                    }
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onSuccess(result.soundboardName)
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onError(e.message ?: "Erreur inconnue")
+                }
+            }
+        }
+    }
     override fun onCleared() {
         super.onCleared()
         audioManager.releaseAll()
