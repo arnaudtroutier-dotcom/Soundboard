@@ -48,24 +48,29 @@ fun SoundTile(
     val isLight = tileColor.luminance() > 0.4f
     val contentColor = if (isLight) Color(0xFF1A1A1A) else Color.White
 
-    // Use refs (not state) for gesture tracking — no recomposition side effects
-    val isDragging = remember(tile.id) { mutableStateOf(false) }
-    val isResizing = remember(tile.id) { mutableStateOf(false) }
+    // Gesture flags — stored as plain refs, never trigger recomposition themselves
+    val gestureActive = remember(tile.id) { mutableStateOf(false) }
 
-    // Local display values — only updated from DB when fully idle
+    // Local display values
     val localX = remember(tile.id) { mutableStateOf(tile.posX) }
     val localY = remember(tile.id) { mutableStateOf(tile.posY) }
     val localW = remember(tile.id) { mutableStateOf(tile.width) }
     val localH = remember(tile.id) { mutableStateOf(tile.height) }
 
-    // Sync from DB only when not gesturing
-    if (!isDragging.value) {
-        localX.value = tile.posX
-        localY.value = tile.posY
-    }
-    if (!isResizing.value) {
-        localW.value = tile.width
-        localH.value = tile.height
+    // Sync from DB only when a new tile object arrives with different ID
+    // For same tile, only sync when completely idle AND DB value differs from what we saved
+    val lastSavedX = remember(tile.id) { mutableStateOf(tile.posX) }
+    val lastSavedY = remember(tile.id) { mutableStateOf(tile.posY) }
+    val lastSavedW = remember(tile.id) { mutableStateOf(tile.width) }
+    val lastSavedH = remember(tile.id) { mutableStateOf(tile.height) }
+
+    // Only accept DB update if it matches what we last saved (our own write came back)
+    // OR if it's a different value entirely (external change)
+    if (!gestureActive.value) {
+        if (tile.posX == lastSavedX.value) localX.value = tile.posX
+        if (tile.posY == lastSavedY.value) localY.value = tile.posY
+        if (tile.width == lastSavedW.value) localW.value = tile.width
+        if (tile.height == lastSavedH.value) localH.value = tile.height
     }
 
     val xDp: Dp = with(density) { (localX.value * containerWidthPx).toDp() }
@@ -107,13 +112,15 @@ fun SoundTile(
                 .pointerInput(isEditMode) {
                     if (isEditMode) {
                         detectDragGestures(
-                            onDragStart = { isDragging.value = true },
+                            onDragStart = { gestureActive.value = true },
                             onDragEnd = {
+                                lastSavedX.value = localX.value
+                                lastSavedY.value = localY.value
+                                gestureActive.value = false
                                 onMoveEnd(localX.value, localY.value)
-                                isDragging.value = false
                             },
                             onDragCancel = {
-                                isDragging.value = false
+                                gestureActive.value = false
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
@@ -178,13 +185,15 @@ fun SoundTile(
                     .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(topStart = 8.dp, bottomEnd = 10.dp))
                     .pointerInput(tile.id) {
                         detectDragGestures(
-                            onDragStart = { isResizing.value = true },
+                            onDragStart = { gestureActive.value = true },
                             onDragEnd = {
+                                lastSavedW.value = localW.value
+                                lastSavedH.value = localH.value
+                                gestureActive.value = false
                                 onResizeEnd(localW.value, localH.value)
-                                isResizing.value = false
                             },
                             onDragCancel = {
-                                isResizing.value = false
+                                gestureActive.value = false
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
