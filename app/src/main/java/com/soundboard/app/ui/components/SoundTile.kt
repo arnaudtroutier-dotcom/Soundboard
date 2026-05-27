@@ -53,8 +53,8 @@ fun SoundTile(
     var localW by remember(tile.id) { mutableStateOf(tile.width) }
     var localH by remember(tile.id) { mutableStateOf(tile.height) }
 
-    var isDragging by remember { mutableStateOf(false) }
-    var isResizing by remember { mutableStateOf(false) }
+    var isDragging by remember(tile.id) { mutableStateOf(false) }
+    var isResizing by remember(tile.id) { mutableStateOf(false) }
 
     LaunchedEffect(tile.posX, tile.posY) {
         if (!isDragging) { localX = tile.posX; localY = tile.posY }
@@ -63,10 +63,10 @@ fun SoundTile(
         if (!isResizing) { localW = tile.width; localH = tile.height }
     }
 
-    val tileXDp: Dp = with(density) { (localX * containerWidthPx).toDp() }
-    val tileYDp: Dp = with(density) { (localY * containerHeightPx).toDp() }
-    val tileWDp: Dp = with(density) { (localW * containerWidthPx).toDp() }
-    val tileHDp: Dp = with(density) { (localH * containerHeightPx).toDp() }
+    val xDp: Dp = with(density) { (localX * containerWidthPx).toDp() }
+    val yDp: Dp = with(density) { (localY * containerHeightPx).toDp() }
+    val wDp: Dp = with(density) { (localW * containerWidthPx).toDp() }.coerceAtLeast(60.dp)
+    val hDp: Dp = with(density) { (localH * containerHeightPx).toDp() }.coerceAtLeast(40.dp)
 
     val glowColor = when {
         playbackState.isPlaying -> PlayingGlow
@@ -76,8 +76,8 @@ fun SoundTile(
 
     Box(
         modifier = modifier
-            .offset(x = tileXDp, y = tileYDp)
-            .size(width = tileWDp.coerceAtLeast(60.dp), height = tileHDp.coerceAtLeast(40.dp))
+            .offset(x = xDp, y = yDp)
+            .size(width = wDp, height = hDp)
     ) {
         Box(
             modifier = Modifier
@@ -109,7 +109,8 @@ fun SoundTile(
                             },
                             onDragCancel = {
                                 isDragging = false
-                                localX = tile.posX; localY = tile.posY
+                                localX = tile.posX
+                                localY = tile.posY
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
@@ -141,7 +142,7 @@ fun SoundTile(
                 Text(
                     text = tile.name,
                     color = contentColor,
-                    fontSize = when { tileWDp < 80.dp -> 10.sp; tileWDp < 120.dp -> 12.sp; else -> 14.sp },
+                    fontSize = when { wDp < 80.dp -> 10.sp; wDp < 120.dp -> 12.sp; else -> 14.sp },
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
@@ -154,7 +155,10 @@ fun SoundTile(
             }
             if (isEditMode) {
                 Box(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(16.dp)
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(16.dp)
                         .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -168,8 +172,8 @@ fun SoundTile(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .size(22.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(topStart = 8.dp, bottomEnd = 10.dp))
-                    .pointerInput(Unit) {
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(topStart = 8.dp, bottomEnd = 10.dp))
+                    .pointerInput(tile.id) {
                         detectDragGestures(
                             onDragStart = { isResizing = true },
                             onDragEnd = {
@@ -178,7 +182,8 @@ fun SoundTile(
                             },
                             onDragCancel = {
                                 isResizing = false
-                                localW = tile.width; localH = tile.height
+                                localW = tile.width
+                                localH = tile.height
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
@@ -189,7 +194,7 @@ fun SoundTile(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.OpenInFull, "Redimensionner", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
+                Icon(Icons.Default.OpenInFull, "Redimensionner", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(12.dp))
             }
         }
     }
