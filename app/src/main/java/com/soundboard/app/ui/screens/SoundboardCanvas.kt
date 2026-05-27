@@ -25,15 +25,16 @@ fun SoundboardCanvas(
     val playbackStates by viewModel.uiState.collectAsState()
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SurfaceDark)
-            .onGloballyPositioned { coords ->
-                containerWidthPx = coords.size.width.toFloat().coerceAtLeast(1f)
-                containerHeightPx = coords.size.height.toFloat().coerceAtLeast(1f)
-            }
-    ) {
-        tiles.forEach { tileWithSounds ->
+    modifier = Modifier
+        .fillMaxSize()
+        .background(SurfaceDark)
+        .onGloballyPositioned { coords ->
+            containerWidthPx = coords.size.width.toFloat().coerceAtLeast(1f)
+            containerHeightPx = coords.size.height.toFloat().coerceAtLeast(1f)
+        }
+) {
+    tiles.forEach { tileWithSounds ->
+        key(tileWithSounds.tile.id) {
             val tile = tileWithSounds.tile
             val playback = playbackStates.playbackStates[tile.id]
                 ?: com.soundboard.app.audio.PlaybackState()
@@ -52,6 +53,7 @@ fun SoundboardCanvas(
             )
         }
     }
+}
 
     editingTile?.let { tws ->
         TileEditorDialog(
