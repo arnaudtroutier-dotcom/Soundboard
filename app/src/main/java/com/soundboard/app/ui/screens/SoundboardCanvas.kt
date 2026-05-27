@@ -18,8 +18,8 @@ fun SoundboardCanvas(
     isEditMode: Boolean,
     viewModel: SoundboardViewModel
 ) {
-    var containerWidthPx by remember(soundboardId) { mutableStateOf(1f) }
-    var containerHeightPx by remember(soundboardId) { mutableStateOf(1f) }
+    var containerWidthPx by remember { mutableStateOf(1f) }
+    var containerHeightPx by remember { mutableStateOf(1f) }
     var editingTile by remember(soundboardId) { mutableStateOf<TileWithSounds?>(null) }
 
     val playbackStates by viewModel.uiState.collectAsState()
