@@ -123,8 +123,8 @@ class SoundboardViewModel(application: Application) : AndroidViewModel(applicati
                 Tile(
                     soundboardId = soundboardId,
                     name = "Tuile",
-                    posX = 0.05f,
-                    posY = 0.05f,
+                    posX = tile.posX,
+                    posY = tile.posY,
                     width = 0.25f,
                     height = 0.13f
                 )
