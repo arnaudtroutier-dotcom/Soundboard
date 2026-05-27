@@ -48,25 +48,30 @@ fun SoundTile(
     val isLight = tileColor.luminance() > 0.4f
     val contentColor = if (isLight) Color(0xFF1A1A1A) else Color.White
 
-    var localX by remember(tile.id) { mutableStateOf(tile.posX) }
-    var localY by remember(tile.id) { mutableStateOf(tile.posY) }
-    var localW by remember(tile.id) { mutableStateOf(tile.width) }
-    var localH by remember(tile.id) { mutableStateOf(tile.height) }
+    // Use refs (not state) for gesture tracking — no recomposition side effects
+    val isDragging = remember(tile.id) { mutableStateOf(false) }
+    val isResizing = remember(tile.id) { mutableStateOf(false) }
 
-    var isDragging by remember(tile.id) { mutableStateOf(false) }
-    var isResizing by remember(tile.id) { mutableStateOf(false) }
+    // Local display values — only updated from DB when fully idle
+    val localX = remember(tile.id) { mutableStateOf(tile.posX) }
+    val localY = remember(tile.id) { mutableStateOf(tile.posY) }
+    val localW = remember(tile.id) { mutableStateOf(tile.width) }
+    val localH = remember(tile.id) { mutableStateOf(tile.height) }
 
-    LaunchedEffect(tile.posX, tile.posY) {
-        if (!isDragging) { localX = tile.posX; localY = tile.posY }
+    // Sync from DB only when not gesturing
+    if (!isDragging.value) {
+        localX.value = tile.posX
+        localY.value = tile.posY
     }
-    LaunchedEffect(tile.width, tile.height) {
-        if (!isResizing) { localW = tile.width; localH = tile.height }
+    if (!isResizing.value) {
+        localW.value = tile.width
+        localH.value = tile.height
     }
 
-    val xDp: Dp = with(density) { (localX * containerWidthPx).toDp() }
-    val yDp: Dp = with(density) { (localY * containerHeightPx).toDp() }
-    val wDp: Dp = with(density) { (localW * containerWidthPx).toDp() }.coerceAtLeast(60.dp)
-    val hDp: Dp = with(density) { (localH * containerHeightPx).toDp() }.coerceAtLeast(40.dp)
+    val xDp: Dp = with(density) { (localX.value * containerWidthPx).toDp() }
+    val yDp: Dp = with(density) { (localY.value * containerHeightPx).toDp() }
+    val wDp: Dp = with(density) { (localW.value * containerWidthPx).toDp() }.coerceAtLeast(60.dp)
+    val hDp: Dp = with(density) { (localH.value * containerHeightPx).toDp() }.coerceAtLeast(40.dp)
 
     val glowColor = when {
         playbackState.isPlaying -> PlayingGlow
@@ -102,20 +107,18 @@ fun SoundTile(
                 .pointerInput(isEditMode) {
                     if (isEditMode) {
                         detectDragGestures(
-                            onDragStart = { isDragging = true },
+                            onDragStart = { isDragging.value = true },
                             onDragEnd = {
-                                isDragging = false
-                                onMoveEnd(localX, localY)
+                                onMoveEnd(localX.value, localY.value)
+                                isDragging.value = false
                             },
                             onDragCancel = {
-                                isDragging = false
-                                localX = tile.posX
-                                localY = tile.posY
+                                isDragging.value = false
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
-                                localX = (localX + dragAmount.x / containerWidthPx).coerceIn(0f, 1f)
-                                localY = (localY + dragAmount.y / containerHeightPx).coerceIn(0f, 1f)
+                                localX.value = (localX.value + dragAmount.x / containerWidthPx).coerceIn(0f, 1f)
+                                localY.value = (localY.value + dragAmount.y / containerHeightPx).coerceIn(0f, 1f)
                             }
                         )
                     } else {
@@ -175,20 +178,18 @@ fun SoundTile(
                     .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(topStart = 8.dp, bottomEnd = 10.dp))
                     .pointerInput(tile.id) {
                         detectDragGestures(
-                            onDragStart = { isResizing = true },
+                            onDragStart = { isResizing.value = true },
                             onDragEnd = {
-                                isResizing = false
-                                onResizeEnd(localW, localH)
+                                onResizeEnd(localW.value, localH.value)
+                                isResizing.value = false
                             },
                             onDragCancel = {
-                                isResizing = false
-                                localW = tile.width
-                                localH = tile.height
+                                isResizing.value = false
                             },
                             onDrag = { change, dragAmount ->
                                 change.consume()
-                                localW = (localW + dragAmount.x / containerWidthPx).coerceIn(0.08f, 1f)
-                                localH = (localH + dragAmount.y / containerHeightPx).coerceIn(0.05f, 1f)
+                                localW.value = (localW.value + dragAmount.x / containerWidthPx).coerceIn(0.08f, 1f)
+                                localH.value = (localH.value + dragAmount.y / containerHeightPx).coerceIn(0.05f, 1f)
                             }
                         )
                     },
