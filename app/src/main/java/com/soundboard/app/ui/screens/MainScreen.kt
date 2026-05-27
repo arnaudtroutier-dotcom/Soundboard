@@ -206,7 +206,6 @@ fun MainScreen(viewModel: SoundboardViewModel) {
         }
 
         if (soundboards.isNotEmpty()) {
-    val scrollState = rememberScrollState()
     var draggingIndex by remember { mutableStateOf(-1) }
     var targetIndex by remember { mutableStateOf(-1) }
 
@@ -214,13 +213,13 @@ fun MainScreen(viewModel: SoundboardViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .background(Surface2)
-            .horizontalScroll(scrollState)
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         soundboards.forEachIndexed { index, board ->
             val isDragging = draggingIndex == index
-            val isTarget = targetIndex == index
+            val isTarget = targetIndex == index && targetIndex != draggingIndex
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -234,39 +233,42 @@ fun MainScreen(viewModel: SoundboardViewModel) {
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(
-                        onClick = { viewModel.selectSoundboard(index) },
+                        onClick = {
+                            if (draggingIndex < 0) viewModel.selectSoundboard(index)
+                        },
                         onLongClick = {
-                            draggingIndex = index
-                            targetIndex = index
+                            if (draggingIndex < 0) closingBoard = board
                         }
                     )
-                    .then(
-                        if (draggingIndex >= 0) {
-                            Modifier.pointerInput(draggingIndex) {
-                                detectDragGestures(
-                                    onDragEnd = {
-                                        if (draggingIndex >= 0 && targetIndex >= 0 && draggingIndex != targetIndex) {
-                                            viewModel.reorderSoundboards(draggingIndex, targetIndex)
-                                            viewModel.selectSoundboard(targetIndex)
-                                        }
-                                        draggingIndex = -1
-                                        targetIndex = -1
-                                    },
-                                    onDragCancel = {
-                                        draggingIndex = -1
-                                        targetIndex = -1
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        val tabWidth = 120f
-                                        val newTarget = (draggingIndex + (dragAmount.x / tabWidth).toInt())
-                                            .coerceIn(0, soundboards.size - 1)
-                                        targetIndex = newTarget
-                                    }
-                                )
+                    .pointerInput(index) {
+                        detectDragGestures(
+                            onDragStart = {
+                                draggingIndex = index
+                                targetIndex = index
+                            },
+                            onDragEnd = {
+                                if (draggingIndex >= 0 && targetIndex >= 0 && draggingIndex != targetIndex) {
+                                    viewModel.reorderSoundboards(draggingIndex, targetIndex)
+                                    viewModel.selectSoundboard(targetIndex)
+                                }
+                                draggingIndex = -1
+                                targetIndex = -1
+                            },
+                            onDragCancel = {
+                                draggingIndex = -1
+                                targetIndex = -1
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                if (draggingIndex >= 0) {
+                                    val tabWidth = 130f
+                                    val newTarget = (draggingIndex + (dragAmount.x / tabWidth).toInt())
+                                        .coerceIn(0, soundboards.size - 1)
+                                    targetIndex = newTarget
+                                }
                             }
-                        } else Modifier
-                    )
+                        )
+                    }
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
